@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ojeaga Products List</title>
+    
+    <!-- --- RESTORED: OPEN GRAPH TAGS (For WhatsApp/Facebook Preview) --- -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://your-site.netlify.app/">
+    <meta property="og:title" content="Ojeaga Clifford's Digital Store">
+    <meta property="og:description" content="Shop easily and order directly via WhatsApp in just 3 taps.">
+    <!-- CRITICAL: OG Image now points to the user's specific path -->
+    <meta property="og:image" content="https://your-site.netlify.app/images/og.image"> 
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <!-- ----------------------------------------------------------------- -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f3f4f6; }
+        .product-card { transition: transform 0.1s; }
+        .product-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        
+        #toast { transition: opacity 0.5s ease-in-out; }
+        .toast-visible { opacity: 1; transform: translateY(0); }
+        .toast-hidden { opacity: 0; transform: translateY(20px); pointer-events: none; }
+        
+        #error-screen { display: none; }
+        .profile-box { border-left: 5px solid #2563eb; padding: 15px; margin-bottom: 15px; background: #fff; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center hidden">Your Cloud Products</h1>
+    
+    <!-- LOADING SCREEN -->
+    <div id="loader" class="fixed inset-0 bg-white z-50 flex flex-col justify-center items-center">
+        <i class="fas fa-spinner fa-spin fa-3x text-blue-600 mb-4"></i>
+        <p class="text-gray-500 font-bold">Finding Store...</p>
+    </div>
+
+    <!-- ERROR SCREEN (If connection fails) -->
+    <div id="error-screen" class="fixed inset-0 bg-white z-40 flex flex-col justify-center items-center text-center p-5">
+        <i class="fas fa-exclamation-triangle fa-3x text-red-500 mb-4"></i>
+        <h1 class="text-2xl font-bold text-gray-800">Connection Error</h1>
+        <p class="text-gray-500 mt-2">Could not connect to database. Check security rules or Firebase keys.</p>
+    </div>
+
+    <!-- MAIN APP CONTENT (Visible after load) -->
+    <div id="app-content" class="hidden">
+        <!-- HEADER -->
+        <div class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 id="store-title" class="text-xl font-bold"><i class="fas fa-store"></i> Ojeaga's Public Catalog</h1>
+                <button onclick="toggleCart()" class="relative bg-blue-700 p-2 rounded-full">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-xs w-5 h-5 flex items-center justify-center rounded-full hidden">0</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="container mx-auto p-4">
+             <!-- SEARCH BAR AREA -->
+            <div id="search-container" class="bg-white p-3 rounded-lg shadow-md mb-4 flex items-center">
+                <i class="fas fa-search text-gray-400 mr-3"></i>
+                <input 
+                    type="text" 
+                    id="search-input" 
+                    placeholder="Search products by name or category..." 
+                    class="flex-1 focus:outline-none" 
+                    oninput="handleSearch(this.value)"
+                >
+            </div>
+
+            <div id="product-list" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Products inject here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 toast-hidden flex items-center">
+        <i class="fas fa-check-circle text-green-400 mr-2"></i>
+        <span id="toast-message">Item added to cart</span>
+    </div>
+
+    <!-- CART MODAL -->
+    <div id="cart-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-end sm:items-center z-50">
+        <div class="bg-white w-full sm:w-96 rounded-t-xl sm:rounded-xl p-5 shadow-2xl h-3/4 flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-bold">Your Cart 🛒</h2>
+                <button onclick="toggleCart()" class="text-gray-500"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            
+            <div id="cart-items" class="flex-1 overflow-y-auto space-y-3">
+                <p class="text-gray-400 text-center mt-10">Your cart is empty.</p>
+            </div>
+
+            <div class="border-t pt-4 mt-4">
+                <div class="flex justify-between text-lg font-bold mb-4">
+                    <span>Total:</span>
+                    <span id="cart-total" class="text-green-600">₦0</span>
+                </div>
+                <button onclick="checkoutWhatsApp()" class="w-full bg-green-500 text-white py-3 rounded-lg font-bold shadow hover:bg-green-600">
+                    <i class="fab fa-whatsapp"></i> Order via WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIREBASE LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        // --- PASTE YOUR FIREBASE CONFIG HERE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCiOhrie12s0BjLEcZo6WUMyf2r5DN7EPs",
+            authDomain: "mybusinessapp-6e078.firebaseapp.com",
+            projectId: "mybusinessapp-6e078",
+            storageBucket: "mybusinessapp-6e078.firebasestorage.app",
+            messagingSenderId: "34868859116",
+            appId: "1:34868859116:web:ed9a6fe4100962f65495c9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const CART_KEY = 'ojeaga_cart'; 
+
+        let storeConfig = {
+            name: "Ojeaga's Digital Store",
+            whatsappNumber: "2347044649784", // Fixed fallback number
+            currency: "₦"
+        };
+        
+        let cart = [];
+        let products = []; // Master list of all products
+
+        initStore();
+
+        // --- LOCAL STORAGE FUNCTIONS ---
+        function loadCart() {
+            try {
+                const savedCart = localStorage.getItem(CART_KEY);
+                if (savedCart) {
+                    cart = JSON.parse(savedCart);
+                }
+            } catch (e) {
+                console.error("Error loading cart:", e);
+                localStorage.removeItem(CART_KEY);
+            }
+        }
+
+        function saveCart() {
+            try {
+                localStorage.setItem(CART_KEY, JSON.stringify(cart));
+            } catch (e) {
+                console.error("Error saving cart:", e);
+            }
+        }
+        // -------------------------------
+
+        async function initStore() {
+            loadCart(); // Load saved cart items at startup
+            loadAllProducts();
+        }
+
+        async function loadAllProducts() {
+            const listDiv = document.getElementById('product-list');
+            const loaderEl = document.getElementById('loader');
+
+            try {
+                const querySnapshot = await getDocs(collection(db, "products"));
+                
+                products = [];
+                querySnapshot.forEach((doc) => {
+                    products.push({ id: doc.id, ...doc.data() });
+                });
+                
+                loaderEl.style.display = 'none';
+                document.getElementById('app-content').classList.remove('hidden'); 
+
+                if (products.length === 0) {
+                    listDiv.innerHTML = "<p class='col-span-full text-center text-gray-500'>No products found in the database. Add some via the app!</p>";
+                    return;
+                }
+
+                renderProducts(products); 
+
+            } catch (e) {
+                console.error("CRITICAL ERROR:", e);
+                loaderEl.style.display = 'none';
+                document.getElementById('error-screen').style.display = 'flex';
+            }
+        }
+
+        function getImagePath(productName) {
+            const cleanName = productName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return `images/${cleanName}.jpg`;
+        }
+
+        window.handleSearch = (searchTerm) => {
+            const term = searchTerm.toLowerCase().trim();
+            if (!term) {
+                renderProducts(products); 
+                return;
+            }
+
+            const filtered = products.filter(p => 
+                p.name.toLowerCase().includes(term) || 
+                (p.category && p.category.toLowerCase().includes(term))
+            );
+            
+            renderProducts(filtered);
+        };
+
+        function renderProducts(productList) {
+            const listDiv = document.getElementById('product-list');
+            listDiv.innerHTML = "";
+
+            if (productList.length === 0) {
+                 listDiv.innerHTML = "<p class='col-span-full text-center text-gray-500'>No matching products found.</p>";
+                 return;
+            }
+            
+            productList.forEach(p => {
+                const isOutOfStock = p.stock <= 0;
+                const btnClass = isOutOfStock ? "bg-gray-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white";
+                const cardAction = `window.location.href='product_detail.html?pid=${p.id}'`; // Link to detail page
+                
+                const isBase64 = p.image && p.image.startsWith('data:image');
+                const isHttp = p.image && p.image.startsWith('http');
+                let imageSrc = p.image; 
+
+                if (!imageSrc || imageSrc.startsWith('file')) {
+                    imageSrc = getImagePath(p.name);
+                }
+
+                const html = `
+                    <div onclick="${cardAction}" class="product-card bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer">
+                        <div class="h-40 bg-gray-200 flex items-center justify-center overflow-hidden">
+                            ${(isBase64 || isHttp || imageSrc.startsWith('images/')) ? 
+                                `<img src="${imageSrc}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='https://placehold.co/150x150/f0f0f0/ccc?text=Image+Error';">` : 
+                                `<i class="fas fa-box-open text-gray-400 fa-3x"></i>`
+                            }
+                        </div>
+                        <span class="badge">${p.category || 'Item'}</span>
+                        <div class="p-3">
+                            <h3 class="font-bold text-gray-800 truncate">${p.name}</h3>
+                            <p class="text-sm text-gray-500 mb-2">${isOutOfStock ? "<span class='text-red-500'>Out of Stock</span>" : p.stock + " in stock"}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-green-600 font-bold">${storeConfig.currency}${p.sellPrice.toLocaleString()}</span>
+                                <button onclick="event.stopPropagation(); addToCart('${p.id}', true)" class="${btnClass} px-3 py-1 rounded-lg text-sm">
+                                    ${isOutOfStock ? "Sold Out" : "Add"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listDiv.innerHTML += html;
+            });
+        }
+
+        function showError() {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('error-screen').style.display = 'flex';
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('toast-hidden');
+            toast.classList.add('toast-visible');
+            setTimeout(() => {
+                toast.classList.remove('toast-visible');
+                toast.classList.add('toast-hidden');
+            }, 2000);
+        }
+
+        window.addToCart = (id, showNotification = false) => {
+            const product = products.find(p => p.id === id);
+            const existing = cart.find(c => c.id === id);
+            
+            if (existing) {
+                if (existing.qty < product.stock) {
+                    existing.qty++;
+                    if (showNotification) showToast(`Added another ${product.name}`);
+                } else {
+                    if (showNotification) showToast("Max stock reached!");
+                }
+            } else {
+                cart.push({ ...product, qty: 1 });
+                if (showNotification) showToast(`${product.name} added to cart`);
+            }
+            updateCartUI();
+            saveCart(); // Save after change
+        };
+
+        window.decreaseQty = (id) => {
+            const existing = cart.find(c => c.id === id);
+            if (existing) {
+                if (existing.qty > 1) {
+                    existing.qty--; // Decrement quantity
+                } else {
+                    cart = cart.filter(c => c.id !== id); // Remove if quantity is 1
+                }
+                updateCartUI();
+                saveCart(); // Save after change
+            }
+        };
+
+        window.removeFromCart = (id) => {
+            cart = cart.filter(c => c.id !== id);
+            updateCartUI();
+            saveCart(); // Save after change
+        };
+
+        window.toggleCart = () => {
+            document.getElementById('cart-modal').classList.toggle('hidden');
+        };
+
+        function updateCartUI() {
+            const cartDiv = document.getElementById('cart-items');
+            const badge = document.getElementById('cart-count');
+            const totalEl = document.getElementById('cart-total');
+            
+            const totalQty = cart.reduce((acc, c) => acc + c.qty, 0);
+            badge.innerText = totalQty;
+            badge.classList.toggle('hidden', totalQty === 0);
+
+            cartDiv.innerHTML = "";
+            let total = 0;
+
+            if (cart.length === 0) {
+                cartDiv.innerHTML = "<p class='text-gray-400 text-center mt-10'>Your cart is empty.</p>";
+            } else {
+                cart.forEach(item => {
+                    const itemTotal = item.sellPrice * item.qty;
+                    total += itemTotal;
+                    cartDiv.innerHTML += `
+                        <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                            <div class="flex-1">
+                                <p class="font-bold text-sm">${item.name}</p>
+                                <div class="flex items-center mt-1">
+                                    <p class="text-xs text-gray-500 mr-2">${storeConfig.currency}${item.sellPrice}</p>
+                                    
+                                    <!-- QUANTITY CONTROLS (with Minus button) -->
+                                    <div class="flex items-center border rounded bg-white w-max">
+                                        <button onclick="decreaseQty('${item.id}')" class="px-2 py-0 text-gray-600 hover:bg-gray-100">-</button>
+                                        <span class="px-2 text-xs font-bold">${item.qty}</span>
+                                        <button onclick="addToCart('${item.id}', false)" class="px-2 py-0 text-gray-600 hover:bg-gray-100">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="font-bold text-sm mr-3">${storeConfig.currency}${itemTotal.toLocaleString()}</span>
+                                <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 ml-2">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            totalEl.innerText = storeConfig.currency + total.toLocaleString();
+        }
+
+        window.checkoutWhatsApp = () => {
+            if (cart.length === 0) return alert("Cart is empty!");
+            
+            if (!storeConfig.whatsappNumber || storeConfig.whatsappNumber.length < 10) {
+                return alert("Store owner has not set a valid phone number (Please update their profile).");
+            }
+
+            let msg = `Hello ${storeConfig.name}, I want to order:%0A%0A`;
+            let total = 0;
+            cart.forEach(item => {
+                const sub = item.sellPrice * item.qty;
+                total += sub;
+                msg += `▪️ ${item.name} (x${item.qty}) - ${storeConfig.currency}${sub.toLocaleString()}%0A`;
+            });
+            msg += `%0A*TOTAL: ${storeConfig.currency}${total.toLocaleString()}*`;
+            msg += "%0A%0APlease confirm availability.";
+            window.open(`https://wa.me/${storeConfig.whatsappNumber}?text=${msg}`, '_blank');
+        };
+
+        initStore();
+    </script>
+</body>
+</html>
